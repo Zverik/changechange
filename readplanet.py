@@ -17,14 +17,12 @@ def extract_attr(line, attr):
 
 if not os.path.exists(os.path.join(db.path, 'nodes.bin')):
     print 'Creating files'
-    res = subprocess.call(['dd', 'if=/dev/zero', 'of='+os.path.join(db.path, 'nodes.bin'), 'bs=16M', 'count={0}'.format(NODE_COUNT*12/16/1024/1024)])
-    if res != 0:
-        print 'DD returned code', res
-        sys.exit(1)
-    res = subprocess.call(['dd', 'if=/dev/zero', 'of='+os.path.join(db.path, 'ways.bin'), 'bs=16M', 'count={0}'.format(WAY_COUNT*16/16/1024/1024)])
-    if res != 0:
-        print 'DD returned code', res
-        sys.exit(1)
+    BLOCK_SIZE = 16*1024*1024
+    for name in (('nodes.bin', NODE_COUNT*12), ('ways.bin', WAY_COUNT*16)):
+      res = subprocess.call(['dd', 'if=/dev/zero', 'of='+os.path.join(db.path, name[0]), 'bs={0}'.format(BLOCK_SIZE), 'count={0}'.format(name[1]/BLOCK_SIZE)])
+      if res != 0:
+          print 'DD returned code', res
+          sys.exit(1)
 
 print 'Parsing the planet'
 db.database.connect()

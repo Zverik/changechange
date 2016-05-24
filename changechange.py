@@ -23,7 +23,7 @@ def download_last_state():
 def read_last_state():
     try:
         st = db.State.get(db.State.id == 1)
-        return [st.changeset, st.replication]
+        return [st.replication, st.changeset]
     except:
         return None
 
@@ -32,8 +32,8 @@ def write_last_state(state):
         st = db.State.get(db.State.id == 1)
     except:
         st = db.State()
-    st.changeset = state[0]
-    st.replication = state[1]
+    st.changeset = state[1]
+    st.replication = state[0]
     st.save()
 
 def get_replication_url(state, subdir):

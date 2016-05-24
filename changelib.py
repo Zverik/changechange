@@ -73,7 +73,6 @@ def fetch_way_bbox(way_id):
     if CACHE and way_id in bbox_cache:
         return bbox_cache[way_id]
     base = way_id * 4
-    print '<', way_id
     bbox = [int32_to_coord(bbox_mmap[base + x]) for x in range(4)]
     if CACHE:
         bbox_cache[way_id] = bbox
@@ -86,7 +85,6 @@ def store_way_bbox(way_id, bbox):
             last_bboxes.append(way_id)
         bbox_cache[way_id] = bbox
     base = way_id * 4
-    print '>', way_id
     for n in range(4):
         bbox_mmap[base + n] = coord_to_int32(bbox[n])
 
@@ -159,7 +157,7 @@ def add_wr_ref(wr_id, ref_id):
 
 def remove_wr_ref(wr_id, ref_id):
     try:
-        wr = WayRef.get(WayRef.wr_id == wr_id)
+        wr = WayRelRef.get(WayRelRef.wr_id == wr_id)
         refs = split_comma(wr.refs)
         try:
             refs.remove(str(-ref_id))
@@ -167,7 +165,7 @@ def remove_wr_ref(wr_id, ref_id):
             wr.save()
         except ValueError:
             pass
-    except WayRef.DoesNotExist:
+    except WayRelRef.DoesNotExist:
         pass
 
 def fetch_wr_refs(wr_id):
