@@ -1,0 +1,3 @@
+imposm.parser
+lxml
+peewee

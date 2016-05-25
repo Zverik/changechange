@@ -1,69 +1,64 @@
 #!/usr/bin/env python
-import changelib, sys, os, subprocess, re
-import db
+import changelib, sys, os, subprocess
+from db import database, NodeRef, WayRelRef, Members
+from imposm.parser import OSMParser
 
 NODE_COUNT = 4400*1024*1024
 WAY_COUNT = NODE_COUNT / 10
-REPLICATION_BASE_URL = 'http://planet.openstreetmap.org/replication'
 
-def extract_attr(line, attr):
-    s = ' {0}='.format(attr)
-    l = len(s)
-    try:
-        p = line.index(s)
-        return line[p+l+1:line.index(line[p+l], p+l+1)]
-    except ValueError:
-        return None
+if len(sys.argv) < 2:
+    print 'Imports planet data into binary files for changechange.'
+    print 'Usage: {0} <planet_file.osm.pbf> [<path_to_db>]'.format(sys.argv[0])
+    sys.exit(1)
 
-if not os.path.exists(os.path.join(db.path, 'nodes.bin')):
+path = os.path.dirname(sys.argv[0]) if len(sys.argv) < 3 or not os.path.exists(sys.argv[2]) else sys.argv[2]
+database.init(os.path.join(path, 'changechange.db'))
+
+if not os.path.exists(os.path.join(path, 'nodes.bin')):
     print 'Creating files'
     BLOCK_SIZE = 16*1024*1024
     for name in (('nodes.bin', NODE_COUNT*12), ('ways.bin', WAY_COUNT*16)):
-      res = subprocess.call(['dd', 'if=/dev/zero', 'of='+os.path.join(db.path, name[0]), 'bs={0}'.format(BLOCK_SIZE), 'count={0}'.format(name[1]/BLOCK_SIZE)])
+      res = subprocess.call(['dd', 'if=/dev/zero', 'of='+os.path.join(path, name[0]), 'bs={0}'.format(BLOCK_SIZE), 'count={0}'.format(name[1]/BLOCK_SIZE)])
       if res != 0:
           print 'DD returned code', res
           sys.exit(1)
 
-print 'Parsing the planet'
-db.database.connect()
-db.database.create_tables([db.NodeRef, db.WayRelRef, db.Members], safe=True)
-changelib.CACHE = False
-changelib.open(db.path)
-cnt = 0
-members = []
-last_date = ''
-wr_id = None
-for line in sys.stdin:
-    cnt += 1
-    if cnt >= 1000000:
-        changelib.flush()
-        cnt = 0
-    timestamp = extract_attr(line, 'timestamp')
-    if timestamp is not None and timestamp > last_date:
-        last_date = timestamp
-    if '<node' in line:
-        node_id = int(extract_attr(line, 'id'))
-        lat = float(extract_attr(line, 'lat'))
-        lon = float(extract_attr(line, 'lon'))
-        changelib.store_node_coords(node_id, lat, lon)
-    elif '<way' in line:
-        wr_id = int(extract_attr(line, 'id'))
-    elif '<relation' in line:
-        wr_id = -int(extract_attr(line, 'id'))
-    elif wr_id and '<nd ' in line:
-        members.append(int(extract_attr(line, 'ref')))
-    elif wr_id and '<member ' in line:
-        typ = extract_attr(line, 'type')
-        ref = extract_attr(line, 'ref')
-        members.append(typ[0] + ref)
-    elif '</way>' in line:
-        changelib.update_way_nodes(wr_id, members)
-        members = []
-        wr_id = None
-    elif '</relation>' in line:
-        changelib.update_relation_members(wr_id, members)
-        members = []
-        wr_id = None
-changelib.close()
+class ParserForChange():
+    def __init__(self):
+        self.cnt = 0
 
-print 'Last date:', last_date
+    def flush(self):
+        self.cnt += 1
+        if self.cnt > 1000000:
+            changelib.flush()
+            self.cnt = 0
+
+    def print_state(self, typ, ident):
+        sys.stdout.write('\rProcessing {0} {1}{2}'.format(typ, ident, ' ' *
+                                                          10))
+        sys.stdout.flush()
+        self.flush()
+
+    def got_coords(self, coords):
+        self.print_state('node', coords[0])
+        changelib.store_node_coords(coords[0], coords[2], coords[1])
+
+    def got_way(self, way):
+        self.print_state('way', way[0])
+        changelib.update_way_nodes(way[0], way[2])
+
+    def got_relation(self, rel):
+        self.print_state('relation', rel[0])
+        members = [x[1][0] + str(x[0]) for x in rel[2]]
+        changelib.update_relation_members(rel[0], members)
+
+database.connect()
+database.create_tables([NodeRef, WayRelRef, Members], safe=True)
+changelib.CACHE = False
+changelib.open(path)
+p = ParserForChange()
+op = OSMParser(concurrency=1, coords_callback=p.got_coords,
+               ways_callback=p.got_way, relations_callback=p.got_relation)
+op.parse(sys.argv[1])
+print
+changelib.close()

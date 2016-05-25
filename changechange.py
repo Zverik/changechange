@@ -4,6 +4,7 @@ from StringIO import StringIO
 from lxml import etree
 import db, changelib
 
+path = os.path.dirname(sys.argv[0]) if len(sys.argv) < 2 or not os.path.exists(sys.argv[1]) else sys.argv[1]
 REPLICATION_BASE_URL = 'http://planet.openstreetmap.org/replication'
 API_BASE_URL = 'http://api.openstreetmap.org/api/0.6'
 TARGET_OSC_PATH = os.path.dirname(sys.argv[0])
@@ -171,6 +172,7 @@ if __name__ == '__main__':
         print 'Failed to download last state:', e
         sys.exit(1)
 
+    db.database.init(os.path.join(path, 'changechange.db'))
     db.database.connect()
     db.database.create_tables([db.Changeset, db.NodeRef, db.WayRelRef, db.Members, db.State], safe=True)
 
@@ -195,7 +197,7 @@ if __name__ == '__main__':
     print
 
     # Process data replication
-    changelib.open(db.path)
+    changelib.open(path)
     while state[0] < cur_state[0] - 1:
         with db.database.atomic():
             state[0] += 1

@@ -1,0 +1,7 @@
+00?/
+*.gz
+*.pbf
+*.pyc
+nodes.bin
+ways.bin
+changechange.db
