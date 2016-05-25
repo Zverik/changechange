@@ -1,8 +1,6 @@
-import os, sys
 from peewee import *
 
-path = os.path.dirname(sys.argv[0]) if len(sys.argv) < 2 or not os.path.exists(sys.argv[1]) else sys.argv[1]
-database = SqliteDatabase(os.path.join(path, 'changechange.db'))
+database = SqliteDatabase(None)
 
 class BaseModel(Model):
     class Meta:
