@@ -39,18 +39,21 @@ class ParserForChange():
         sys.stdout.flush()
         self.flush()
 
-    def got_coords(self, coords):
-        self.print_state('node', coords[0])
-        changelib.store_node_coords(coords[0], coords[2], coords[1])
+    def got_coords(self, coords_list):
+        for coords in coords_list:
+            self.print_state('node', coords[0])
+            changelib.store_node_coords(coords[0], coords[2], coords[1])
 
-    def got_way(self, way):
-        self.print_state('way', way[0])
-        changelib.update_way_nodes(way[0], way[2])
+    def got_way(self, ways):
+        for way in ways:
+            self.print_state('way', way[0])
+            changelib.update_way_nodes(way[0], way[2])
 
-    def got_relation(self, rel):
-        self.print_state('relation', rel[0])
-        members = [x[1][0] + str(x[0]) for x in rel[2]]
-        changelib.update_relation_members(rel[0], members)
+    def got_relation(self, relations):
+        for rel in relations:
+            self.print_state('relation', rel[0])
+            members = [x[1][0] + str(x[0]) for x in rel[2]]
+            changelib.update_relation_members(rel[0], members)
 
 database.connect()
 database.create_tables([NodeRef, WayRelRef, Members], safe=True)
