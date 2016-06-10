@@ -29,10 +29,10 @@ def close():
     bbox_mmap.close()
 
 def coord_to_int32(coord):
-    return int(round(coord * COORD_MULTIPLIER))
+    return None if coord is None else int(round(coord * COORD_MULTIPLIER))
 
 def int32_to_coord(value):
-    return float(value) / COORD_MULTIPLIER
+    return None if value is None else float(value) / COORD_MULTIPLIER
 
 def split_comma(s):
     if len(s) == 0:
@@ -74,12 +74,16 @@ def fetch_way_bbox(way_id):
         return bbox_cache[way_id]
     base = way_id * 4
     bbox = [int32_to_coord(bbox_mmap[base + x]) for x in range(4)]
+    if bbox[0] is None or bbox[1] is None or bbox[2] is None:
+        return None
     if CACHE:
         bbox_cache[way_id] = bbox
     last_bboxes.append(way_id)
     return bbox
 
 def store_way_bbox(way_id, bbox):
+    if bbox is None:
+        return
     if CACHE:
         if way_id not in bbox_cache:
             last_bboxes.append(way_id)
@@ -90,7 +94,7 @@ def store_way_bbox(way_id, bbox):
 
 def add_node_ref(node_id, wr_id):
     t = fetch_node_tuple(node_id)
-    if t[2] == 0:
+    if t[2] is None:
         t = (t[0], t[1], wr_id)
         if CACHE:
             node_cache[node_id] = t
@@ -116,7 +120,7 @@ def remove_node_ref(node_id, wr_id):
         refs.remove(wr_id)
     were_refs = len(refs) > 0
     if wr_id == t[2]:
-        newval = 0 if len(refs) == 0 else refs.pop()
+        newval = None if len(refs) == 0 else refs.pop()
         t = (t[0], t[1], newval)
         if CACHE:
             node_cache[node_id] = t
@@ -132,7 +136,7 @@ def remove_node_ref(node_id, wr_id):
 def fetch_node_refs(node_id):
     refs = []
     t = fetch_node_tuple(node_id)
-    if t[2] != 0:
+    if t[2] is not None:
         refs.append(t[2])
         try:
             nr = NodeRef.get(NodeRef.node_id == node_id)
@@ -183,13 +187,17 @@ def fetch_way_nodes(way_id):
         return []
 
 def calc_bbox(nodes):
-    bbox = [0.0, 0.0, 0.0, 0.0]
+    bbox = None
     for n in nodes:
         t = fetch_node_tuple(n)
-        bbox[0] = min(bbox[0], t[0])
-        bbox[1] = min(bbox[1], t[1])
-        bbox[2] = max(bbox[0], t[0])
-        bbox[3] = max(bbox[1], t[1])
+        if t[0] is not None and t[1] is not None:
+            if bbox is None:
+                bbox = [t[0], t[1], t[0], t[1]]
+            else:
+                bbox[0] = min(bbox[0], t[0])
+                bbox[1] = min(bbox[1], t[1])
+                bbox[2] = max(bbox[0], t[0])
+                bbox[3] = max(bbox[1], t[1])
     return bbox
 
 def update_way_nodes(way_id, nodes):

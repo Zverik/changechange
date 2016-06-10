@@ -3,14 +3,19 @@ from collections import deque, Counter
 
 class BigMMap:
     """An mmap of int32 numbers contained in a very big file."""
+    ZERO_VALUE = 0xFFFFFFFE
 
     def __init__(self, filename, mmap_count=2, page_size=64):
         self.page_size = page_size * 1024 * 1024
         self.mmap_count = mmap_count
         self.history_size = 1000
-        self.f = open(filename, 'r+b')
-        self.f.seek(0, 2)
-        self.length = self.f.tell()
+        try:
+            self.f = open(filename, 'r+b')
+            self.f.seek(0, 2)
+            self.length = self.f.tell()
+        except IOError:
+            self.f = None
+            self.length = 0
         self.map = {}
         self.access_count = Counter()
         self.accessed_pages = deque()
@@ -33,7 +38,8 @@ class BigMMap:
             for m in self.map:
                 self.map[m].close()
             self.map.clear()
-            self.f.close()
+            if self.f is not None:
+                self.f.close()
 
     def _get_page(self, offset):
         """Returns a tuple (mmap, adj. offset)."""
@@ -61,14 +67,30 @@ class BigMMap:
         return (self.map[page], (offset - page * self.page_size) << 2)
 
     def __len__(self):
-        return 0
+        return self.length >> 2
 
     def __getitem__(self, offset):
+        if self.f is None:
+            return None
         m = self._get_page(offset)
         s = m[0][m[1]:m[1] + 4]
-        return struct.unpack('<l', s)[0]
+        v = struct.unpack('<l', s)[0]
+        if v == 0:
+            return None
+        elif v == ZERO_VALUE:
+            return 0
+        else:
+            return v
 
     def __setitem__(self, offset, value):
-        s = struct.pack('<l', value)
+        if self.f is None:
+            return
+        if value is None:
+            v = 0
+        elif value == 0:
+            v = ZERO_VALUE
+        else:
+            v = value
+        s = struct.pack('<l', v)
         m = self._get_page(offset)
         m[0][m[1]:m[1] + 4] = s

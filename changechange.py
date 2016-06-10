@@ -115,7 +115,7 @@ def enrich_replication(state):
                     ref = int(nd.get('ref'))
                     nodes.append(ref)
                     node_data = changelib.fetch_node_tuple(ref)
-                    if node_data is not None:
+                    if node_data is not None and node_data[0] is not None and node_data[1] is not None:
                         # We leave the possibility of an absent node
                         nd.set('lat', str(node_data[0]))
                         nd.set('lon', str(node_data[1]))
@@ -131,7 +131,7 @@ def enrich_replication(state):
                     ref = int(member.get('ref'))
                     if member.get('type') == 'node':
                         node_data = changelib.fetch_node_tuple(ref)
-                        if node_data is not None:
+                        if node_data is not None and node_data[0] is not None and node_data[1] is not None:
                             member.set('lat', str(node_data[0]))
                             member.set('lon', str(node_data[1]))
                     elif member.get('type') == 'way':
@@ -159,7 +159,7 @@ def enrich_replication(state):
             # Print and forget
             p = etree.Element(action)
             p.append(element)
-            gzout.write(etree.tostring(p))
+            gzout.write(etree.tostring(p, encoding='utf-8'))
             element.clear()
             p.clear()
     changelib.purge_node_cache()
