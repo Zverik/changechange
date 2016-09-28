@@ -1,5 +1,7 @@
-import mmap, struct
+import mmap
+import struct
 from collections import deque, Counter
+
 
 class BigMMap:
     """An mmap of int32 numbers contained in a very big file."""

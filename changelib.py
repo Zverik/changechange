@@ -15,32 +15,40 @@ BBOX_CACHE_MAX_SIZE = 10000
 bbox_cache = {}
 last_bboxes = []
 
+
 def open(path):
     global node_mmap, bbox_mmap
     node_mmap = BigMMap(join(path, 'nodes.bin'))
     bbox_mmap = BigMMap(join(path, 'ways.bin'))
 
+
 def flush():
     node_mmap.flush()
     bbox_mmap.flush()
+
 
 def close():
     node_mmap.close()
     bbox_mmap.close()
 
+
 def coord_to_int32(coord):
     return int(round(coord * COORD_MULTIPLIER))
 
+
 def int32_to_coord(value):
     return float(value) / COORD_MULTIPLIER
+
 
 def split_comma(s):
     if len(s) == 0:
         return []
     return s.split(',')
 
+
 def split_comma_i(s):
     return [int(x) for x in split_comma(s)]
+
 
 def fetch_node_tuple(node_id):
     if CACHE and node_id in node_cache:
@@ -54,6 +62,13 @@ def fetch_node_tuple(node_id):
         node_cache[node_id] = t
     last_nodes.append(node_id)
     return t
+
+
+def store_node_coords_fast(node_id, lat, lon):
+    base = node_id * 3
+    node_mmap[base] = coord_to_int32(lat)
+    node_mmap[base + 1] = coord_to_int32(lon)
+
 
 def store_node_coords(node_id, lat, lon):
     t = fetch_node_tuple(node_id)
@@ -69,6 +84,7 @@ def store_node_coords(node_id, lat, lon):
         if ref > 0:
             update_way_bbox(ref)
 
+
 def fetch_way_bbox(way_id):
     if CACHE and way_id in bbox_cache:
         return bbox_cache[way_id]
@@ -79,6 +95,7 @@ def fetch_way_bbox(way_id):
     last_bboxes.append(way_id)
     return bbox
 
+
 def store_way_bbox(way_id, bbox):
     if CACHE:
         if way_id not in bbox_cache:
@@ -88,11 +105,12 @@ def store_way_bbox(way_id, bbox):
     for n in range(4):
         bbox_mmap[base + n] = coord_to_int32(bbox[n])
 
+
 def add_node_ref(node_id, wr_id):
     t = fetch_node_tuple(node_id)
     if t[2] == 0:
-        t = (t[0], t[1], wr_id)
         if CACHE:
+            t = (t[0], t[1], wr_id)
             node_cache[node_id] = t
         node_mmap[node_id * 3 + 2] = wr_id
     elif t[2] != wr_id:
@@ -108,6 +126,7 @@ def add_node_ref(node_id, wr_id):
             nr.node_id = node_id
             nr.refs = str(wr_id)
             nr.save()
+
 
 def remove_node_ref(node_id, wr_id):
     t = fetch_node_tuple(node_id)
@@ -129,6 +148,7 @@ def remove_node_ref(node_id, wr_id):
             else:
                 nr.delete_instance()
 
+
 def fetch_node_refs(node_id):
     refs = []
     t = fetch_node_tuple(node_id)
@@ -140,6 +160,7 @@ def fetch_node_refs(node_id):
         except NodeRef.DoesNotExist:
             pass
     return refs
+
 
 def add_wr_ref(wr_id, ref_id):
     try:
@@ -155,6 +176,7 @@ def add_wr_ref(wr_id, ref_id):
         wr.refs = ','.join(refs + [str(-ref_id)])
         wr.save()
 
+
 def remove_wr_ref(wr_id, ref_id):
     try:
         wr = WayRelRef.get(WayRelRef.wr_id == wr_id)
@@ -168,6 +190,7 @@ def remove_wr_ref(wr_id, ref_id):
     except WayRelRef.DoesNotExist:
         pass
 
+
 def fetch_wr_refs(wr_id):
     try:
         wr = WayRelRef.get(WayRelRef.wr_id == wr_id)
@@ -175,12 +198,14 @@ def fetch_wr_refs(wr_id):
     except WayRelRef.DoesNotExist:
         return []
 
+
 def fetch_way_nodes(way_id):
     try:
         member = Members.get(Members.wr_id == way_id)
         return split_comma_i(member.members)
     except Members.DoesNotExist:
         return []
+
 
 def calc_bbox(nodes):
     bbox = [0.0, 0.0, 0.0, 0.0]
@@ -192,7 +217,9 @@ def calc_bbox(nodes):
         bbox[3] = max(bbox[1], t[1])
     return bbox
 
+
 def update_way_nodes(way_id, nodes):
+    # Update way members in the database
     try:
         way = Members.get(Members.wr_id == way_id)
     except Members.DoesNotExist:
@@ -205,22 +232,24 @@ def update_way_nodes(way_id, nodes):
     old_nodes = set(split_comma_i(way.members))
     way.members = new_members
     way.save()
+    # Update stored way bbox
     bbox = calc_bbox(nodes)
     store_way_bbox(way_id, bbox)
     # Update references for nodes
     for n in nodes:
-        add_node_ref(n, way_id)
-        try:
+        if n not in old_nodes:
+            add_node_ref(n, way_id)
+        else:
             old_nodes.remove(n)
-        except KeyError:
-            pass
     for n in old_nodes:
         remove_node_ref(n, way_id)
+
 
 def update_way_bbox(way_id):
     nodes = fetch_way_nodes(way_id)
     bbox = calc_bbox(nodes)
     store_way_bbox(way_id, bbox)
+
 
 def update_relation_members(rel_id, members):
     try:
@@ -255,11 +284,13 @@ def update_relation_members(rel_id, members):
         else:
             remove_wr_ref(ref, rel_id)
 
+
 def delete_wr(wr_id):
     if wr_id > 0:
         update_way_nodes(wr_id, [])
     else:
         update_relation_members(wr_id, [])
+
 
 def purge_node_cache():
     global last_nodes, last_bboxes

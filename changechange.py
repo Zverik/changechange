@@ -2,12 +2,14 @@
 import os, sys, urllib2, gzip, re, datetime
 from StringIO import StringIO
 from lxml import etree
-import db, changelib
+import db
+import changelib
 
 path = os.path.dirname(sys.argv[0]) if len(sys.argv) < 2 or not os.path.exists(sys.argv[1]) else sys.argv[1]
 REPLICATION_BASE_URL = 'http://planet.openstreetmap.org/replication'
 API_BASE_URL = 'http://api.openstreetmap.org/api/0.6'
 TARGET_OSC_PATH = os.path.dirname(sys.argv[0])
+
 
 def download_last_state():
     """Downloads last data and changeset replication seq number."""
@@ -21,12 +23,14 @@ def download_last_state():
     # Not checking to throw exception in case of an error
     return [seq1, seq2]
 
+
 def read_last_state():
     try:
         st = db.State.get(db.State.id == 1)
         return [st.replication, st.changeset]
     except:
         return None
+
 
 def write_last_state(state):
     try:
@@ -37,6 +41,7 @@ def write_last_state(state):
     st.replication = state[0]
     st.save()
 
+
 def get_replication_url(state, subdir):
     return '{0}/{1}/{2:03}/{3:03}/{4:03}.{5}.gz'.format(
             REPLICATION_BASE_URL,
@@ -46,8 +51,10 @@ def get_replication_url(state, subdir):
             state % 1000,
             'osm' if subdir == 'changesets' else 'osc')
 
+
 def get_replication_target_path(state):
     return os.path.join(TARGET_OSC_PATH, '{0:03}'.format(int(state / 1000000)), '{0:03}'.format(int(state / 1000) % 1000), '{0:03}.osc.gz'.format(state % 1000))
+
 
 def process_replication_changesets(state):
     """Downloads replication archive for a given state, and returns a dict of changeset xml strings."""
@@ -66,9 +73,11 @@ def process_replication_changesets(state):
             ch.save()
             element.clear()
 
+
 def fetch_changeset_from_api(changeset):
     response = urllib2.urlopen('{0}/changeset/{1}'.format(API_BASE_URL, changeset))
     return response.read()
+
 
 def enrich_replication(state):
     """Downloads replication archive for a given state, and creates an enriched osc.gz."""
