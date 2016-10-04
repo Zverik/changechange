@@ -79,7 +79,7 @@ class BigMMap:
         v = struct.unpack('<l', s)[0]
         if v == 0:
             return None
-        elif v == ZERO_VALUE:
+        elif v == self.ZERO_VALUE:
             return 0
         else:
             return v
@@ -90,7 +90,7 @@ class BigMMap:
         if value is None:
             v = 0
         elif value == 0:
-            v = ZERO_VALUE
+            v = self.ZERO_VALUE
         else:
             v = value
         s = struct.pack('<l', v)
