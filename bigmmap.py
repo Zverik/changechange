@@ -5,7 +5,7 @@ from collections import deque, Counter
 
 class BigMMap:
     """An mmap of int32 numbers contained in a very big file."""
-    ZERO_VALUE = 0xFFFFFFFE
+    ZERO_VALUE = 0x7FFFFFFE
 
     def __init__(self, filename, mmap_count=2, page_size=64):
         self.page_size = page_size * 1024 * 1024
@@ -93,6 +93,10 @@ class BigMMap:
             v = self.ZERO_VALUE
         else:
             v = value
-        s = struct.pack('<l', v)
+        try:
+            s = struct.pack('<l', v)
+        except struct.error as e:
+            print 'Erroneous value:', v
+            raise e
         m = self._get_page(offset)
         m[0][m[1]:m[1] + 4] = s

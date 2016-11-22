@@ -3,7 +3,7 @@ import changelib, sys, os, subprocess
 from db import database, NodeRef, WayRelRef, Members
 from imposm.parser import OSMParser
 
-NODE_COUNT = 4400*1024*1024
+NODE_COUNT = 5000*1024*1024
 WAY_COUNT = NODE_COUNT / 10
 
 if len(sys.argv) < 2:
